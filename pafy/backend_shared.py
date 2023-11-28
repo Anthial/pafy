@@ -67,8 +67,8 @@ class BasePafy(object):
         self._have_gdata = False
 
         self._description = None
-        self._likes = None
-        self._dislikes = None
+        #self._likes = None
+        #self._dislikes = None
         self._category = None
         self._published = None
         self._username = None
@@ -309,21 +309,21 @@ class BasePafy(object):
 
         return self._published.replace(".000Z", "").replace("T", " ")
 
-    @property
-    def likes(self):
-        """ The number of likes for the video. Returns int. """
-        if not self._likes:
-            self._fetch_basic()
+    # @property
+    # def likes(self):
+    #     """ The number of likes for the video. Returns int. """
+    #     if not self._likes:
+    #         self._fetch_basic()
 
-        return self._likes
+    #     return self._likes
 
-    @property
-    def dislikes(self):
-        """ The number of dislikes for the video. Returns int. """
-        if not self._dislikes:
-            self._fetch_basic()
+   # @property
+    #def dislikes(self):
+    #    """ The number of dislikes for the video. Returns int. """
+    #    if not self._dislikes:
+    #        self._fetch_basic()
 
-        return self._dislikes
+    #    return self._dislikes
 
     @property
     def mix(self):
@@ -335,17 +335,9 @@ class BasePafy(object):
                 return None
         return self._mix_pl
 
-    def _sortvideokey(self, x, key3d=0, keyres=0, keyftype=0, preftype="any", ftypestrict=True):
-        """ Sort function. """
-        key3d = "3D" not in x.resolution
-        keyres = int(x.resolution.split("x")[0])
-        keyftype = preftype == x.extension
-        strict, nonstrict = (key3d, keyftype, keyres), (key3d, keyres, keyftype)
-        return strict if ftypestrict else nonstrict
-
-    def _getvideo(self, preftype="any", ftypestrict=True, vidonly=False, quality="max"):
+    def _getbest(self, preftype="any", ftypestrict=True, vidonly=False):
         """
-        Return the highest/lowest resolution video available.
+        Return the highest resolution video available.
 
         Select from video-only streams if vidonly is True
         """
@@ -354,12 +346,16 @@ class BasePafy(object):
         if not streams:
             return None
 
-        if quality == "max":
-        	r = max(streams, key=lambda x:self._sortvideokey(x, preftype=preftype, ftypestrict=ftypestrict))
-        elif quality == "min":
-        	r = min(streams, key=lambda x:self._sortvideokey(x, preftype=preftype, ftypestrict=ftypestrict))
-        else:
-            return None
+        def _sortkey(x, key3d=0, keyres=0, keyftype=0):
+            """ sort function for max(). """
+            key3d = "3D" not in x.resolution
+            keyres = int(x.resolution.split("x")[0])
+            keyftype = preftype == x.extension
+            strict = (key3d, keyftype, keyres)
+            nonstrict = (key3d, keyres, keyftype)
+            return strict if ftypestrict else nonstrict
+
+        r = max(streams, key=_sortkey)
 
         if ftypestrict and preftype != "any" and r.extension != preftype:
             return None
@@ -374,11 +370,7 @@ class BasePafy(object):
         set ftypestrict to False to return a non-preferred format if that
         has a higher resolution
         """
-        return self._getvideo(preftype, ftypestrict, vidonly=True, quality="max")
-
-    def getworstvideo(self, preftype="any", ftypestrict=True):
-    	""" Return the worst resolution video-only stream. """
-    	return self._getvideo(preftype, ftypestrict, vidonly=True, quality="min")
+        return self._getbest(preftype, ftypestrict, vidonly=True)
 
     def getbest(self, preftype="any", ftypestrict=True):
         """
@@ -387,38 +379,21 @@ class BasePafy(object):
         set ftypestrict to False to return a non-preferred format if that
         has a higher resolution
         """
-        return self._getvideo(preftype, ftypestrict, vidonly=False, quality="max")
-
-    def getworst(self, preftype="any", ftypestrict=True):
-    	""" Return the lowest resolution video+audio stream. """
-    	return self._getvideo(preftype, ftypestrict, vidonly=False, quality="min")
-
-    def _sortaudiokey(self, x, keybitrate=0, keyftype=0, preftype="any", ftypestrict=True):
-        """ Sort function. """
-        keybitrate = int(x.rawbitrate)
-        keyftype = preftype == x.extension
-        strict, nonstrict = (keyftype, keybitrate), (keybitrate, keyftype)
-        return strict if ftypestrict else nonstrict
+        return self._getbest(preftype, ftypestrict, vidonly=False)
 
     def getbestaudio(self, preftype="any", ftypestrict=True):
         """ Return the highest bitrate audio Stream object."""
         if not self.audiostreams:
             return None
 
-        r = max(self.audiostreams, key=lambda x:self._sortaudiokey(x, preftype=preftype, ftypestrict=ftypestrict))
+        def _sortkey(x, keybitrate=0, keyftype=0):
+            """ Sort function for max(). """
+            keybitrate = int(x.rawbitrate)
+            keyftype = preftype == x.extension
+            strict, nonstrict = (keyftype, keybitrate), (keybitrate, keyftype)
+            return strict if ftypestrict else nonstrict
 
-        if ftypestrict and preftype != "any" and r.extension != preftype:
-            return None
-
-        else:
-            return r
-
-    def getworstaudio(self, preftype="any", ftypestrict=True):
-        """ Return the lowest bitrate audio Stream object."""
-        if not self.audiostreams:
-            return None
-
-        r = min(self.audiostreams, key=lambda x:self._sortaudiokey(x, preftype=preftype, ftypestrict=ftypestrict))
+        r = max(self.audiostreams, key=_sortkey)
 
         if ftypestrict and preftype != "any" and r.extension != preftype:
             return None
